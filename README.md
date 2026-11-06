@@ -21,7 +21,7 @@ The suite covers what a logged-out user can reach:
   - no test IDs
 
   Android files live in `android/` folders. `wdio.ios.conf.ts` excludes `**/android/**`. `wdio.android.conf.ts` runs those folders plus the shared `smoke.spec.ts`.
-- **Appium is started for you.** The WebdriverIO Appium service starts the project's local Appium before the run and stops it after.
+- **Appium is started for you.** The WebdriverIO Appium service starts the project's local Appium before the run and stops it after. Don't start one yourself. The tests can't run without Appium, so if it doesn't start (it isn't installed, or port 4723 is taken) the run stops straight away with an error, before any spec runs. It doesn't wait out the 10-minute connection timeout. See [Troubleshooting](#troubleshooting).
 - **The app is attached, not installed.** It's a store build, so there's no `.ipa` or `.apk`. Appium opens the app that's already on the phone by `bundleId` (iOS) or `appPackage` (Android). See [Production app limits](#production-app-limits).
 
 ## Requirements
@@ -119,6 +119,50 @@ npm run typecheck
 ```
 
 Results print in the terminal (`spec` reporter). Appium and per-spec logs go to `logs/`, and each run overwrites them.
+
+### Every spec and test
+
+`--mochaOpts.grep` matches part of the full test title, so the short phrases below are enough. `--spec` keeps a phrase from matching a test in another spec.
+
+**iOS**
+
+```sh
+# smoke.spec.ts
+npm run test:ios -- --spec test/specs/smoke.spec.ts
+npm run test:ios -- --spec test/specs/smoke.spec.ts --mochaOpts.grep "launches in the foreground"
+
+# login.spec.ts
+npm run test:ios -- --spec test/specs/perchwell/login.spec.ts
+npm run test:ios -- --spec test/specs/perchwell/login.spec.ts --mochaOpts.grep "closes back to the landing screen"
+npm run test:ios -- --spec test/specs/perchwell/login.spec.ts --mochaOpts.grep "for an empty email"
+npm run test:ios -- --spec test/specs/perchwell/login.spec.ts --mochaOpts.grep "badly formatted email"
+npm run test:ios -- --spec test/specs/perchwell/login.spec.ts --mochaOpts.grep "background and back"
+
+# book-a-demo.spec.ts
+npm run test:ios -- --spec test/specs/perchwell/book-a-demo.spec.ts
+npm run test:ios -- --spec test/specs/perchwell/book-a-demo.spec.ts --mochaOpts.grep "returns to the email screen"
+npm run test:ios -- --spec test/specs/perchwell/book-a-demo.spec.ts --mochaOpts.grep "without submitting it"
+```
+
+**Android**
+
+```sh
+# smoke.spec.ts
+npm run test:android -- --spec test/specs/smoke.spec.ts
+npm run test:android -- --spec test/specs/smoke.spec.ts --mochaOpts.grep "launches in the foreground"
+
+# android/login.spec.ts
+npm run test:android -- --spec test/specs/perchwell/android/login.spec.ts
+npm run test:android -- --spec test/specs/perchwell/android/login.spec.ts --mochaOpts.grep "opens on the email screen"
+npm run test:android -- --spec test/specs/perchwell/android/login.spec.ts --mochaOpts.grep "field is empty"
+npm run test:android -- --spec test/specs/perchwell/android/login.spec.ts --mochaOpts.grep "badly formatted email"
+npm run test:android -- --spec test/specs/perchwell/android/login.spec.ts --mochaOpts.grep "background and back"
+
+# android/book-a-demo.spec.ts
+npm run test:android -- --spec test/specs/perchwell/android/book-a-demo.spec.ts
+npm run test:android -- --spec test/specs/perchwell/android/book-a-demo.spec.ts --mochaOpts.grep "returns to the email screen"
+npm run test:android -- --spec test/specs/perchwell/android/book-a-demo.spec.ts --mochaOpts.grep "without submitting it"
+```
 
 ## Reports
 
@@ -291,6 +335,8 @@ Both `book-a-demo` specs follow the same steps:
 
 | Symptom | Cause | Fix |
 |---|---|---|
+| The run stops at once with *Appium exited before timeout*, before any spec | Appium couldn't start. Usually port 4723 is taken by another Appium (often the one for **Appium Inspector**) | Stop the other Appium (`lsof -i :4723` shows it) and run again |
+| The run stops at once with *Appium is not installed locally* | `npm install` hasn't been run | Run `npm install` |
 | `xcodebuild failed with code 65`, *No profiles for '…WebDriverAgentRunner.xctrunner'* | No provisioning profile for WDA | Make sure `allowProvisioningDeviceRegistration` is set and `IOS_TEAM_ID` is the OU of your certificate |
 | `code 65`, *Developer App Certificate is not trusted* | WDA was reinstalled and the trust reset | Trust the certificate again on the phone. Avoid reinstalling WDA |
 | Any `code 65` | Appium only shows the code | Read the real error: `xcrun xcresulttool get build-results --path <newest ~/Library/Developer/Xcode/DerivedData/WebDriverAgent-*/Logs/Test/*.xcresult>` |
